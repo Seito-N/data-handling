@@ -13,5 +13,61 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# 列名の変更
+# パッケージ
 
+```{r}
+pacman::p_load(tidyverse)
+```
+
+# fill 
+
+以下のデータフレームを想定する。
+
+```{r}
+df <- tibble(
+  number = rep(c(1, 2, 3), 2),
+  group = c("a", "a", "a", "b", "b", "b"),
+  var1 = c(20, 0, 0, 35, 0, 0), 
+  var2 = c(0.5, 0.5, 0.5, 0.6, 0.6, 0.6),
+)
+```
+
+```{r}
+df
+```
+
+これを以下のデータフレームに変更したい。前の行の `var1` と `var2` を掛けた値を当該行の `var1` とする処理を想定する。
+
+```{r}
+df2 <- tibble(
+  number = rep(c(1, 2, 3), 2),
+  group = c("a","a","a","b","b","b"),
+  var1 = c(20, 10, 5, 35, 21, 12.6), 
+  var2 = c(0.5, 0.5, 0.5, 0.6, 0.6, 0.6),
+)
+```
+
+```{r}
+df2
+```
+
+以下のように `lag` を使ってもうまくいかない。
+
+```{r}
+df %>% 
+  group_by(group) %>% 
+  mutate(var1 = case_when(number == 1 ~ var1, 
+                          TRUE ~ lag(var1) * lag(var2)))
+```
+
+以下の関数を使用すると良い。`coalesce` で `var1` に `var2` を代入する。その上で `cumprod` で `var1` にその値を掛けていく。
+
+```{r}
+df %>%
+  group_by(group) %>%
+  mutate(
+    var1 = if_else(number == 1, var1, NA_real_),
+    var1 = coalesce(var1, var2),
+    var1 = cumprod(var1)
+  )
+```
