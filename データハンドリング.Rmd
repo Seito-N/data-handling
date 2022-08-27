@@ -1,6 +1,6 @@
 ---
 title: "データハンドリング"
-author: "中村 星斗"
+author: "`r Sys.Date()`"
 date: "2022/7/23"
 output:
   bookdown::html_document2:
@@ -13,15 +13,82 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# パッケージ
+# 逆転項目の処理
+
+心理調査、社会調査等でよくある逆転項目の作成を行います。
+
+## パッケージ
+
+使用データが `bfi` （Big Five 尺度）なので `psych` パッケージを取得します。
+
+```{r}
+pacman::p_load(tidyverse, psych)
+```
+
+## 使用データ
+
+Big Five 尺度のデータを使用します。`A1` から `O5` までのデータは $1$ から $6$ までの 6 件法になっている。
+
+```{r}
+skimr::skim(bfi)
+```
+
+## 作業
+
+### 逆転させたい項目が 1 つの場合
+
+`A1` 列の得点を逆転させたい場合は**各項目から** $7$ **を引きます**。ここでは `A1_R` という新たな列を作成しています。
+
+```{r}
+bfi$A1_R <- 7 - bfi$A1
+```
+
+`table()` 関数を使って適切に処理されているかを確認します。行が逆転前、列が逆転後の値であり、対角線にのみ値が入っていることから正しく逆転処理が出来ていると判断します。
+
+```{r}
+table(bfi$A1, bfi$A1_R)
+```
+
+### 複数の列を一括で逆転させたい場合
+
+方法は2つあります。どちらも手間は大きく変わらない印象です。
+
+1.    一度 long データに変換して逆転処理を行い、その後 wide データに戻すパターン
+1.    `mutate` と `across` を使って wide データのまま処理するパターン
+
+まずはパターン 1。
+
+```{r}
+bfi_R1 <- bfi %>% 
+  rowid_to_column() %>% 
+  select(!A1_R) %>%  # 上で作成した A1 の逆転項目はいらないので削除
+  pivot_longer(cols = A1:O5,
+               names_to = "item", values_to = "raw") %>% 
+  mutate(R = 7 - raw) %>% 
+  pivot_wider(names_from = item, 
+              values_from = c(raw, R),
+              names_glue = "{item}_{.value}")
+
+```
+
+次にパターン 2。
+
+```{r}
+bfi_R2 <- bfi %>% 
+  select(!A1_R) %>% 
+  mutate(across(.cols = A1:O5, .fns = ~ 7 - .))
+```
+
+
+# 値埋めをしてからその値を使った計算をする
+
+## パッケージ
 
 ```{r}
 pacman::p_load(tidyverse)
 ```
 
-# 値埋めをしてからその値を使った計算をする
-
-以下のデータフレームを想定する。
+以下のデータフレームを想定します。。
 
 ```{r}
 df <- tibble(
@@ -83,11 +150,15 @@ pacman::p_load(tidyverse,
                )
 ```
 
+## 使用データ
+
 使用するのはペンギンデータ
 
 ```{r}
 skimr::skim(penguins)
 ```
+
+## 作業
 
 `species` ごとにネストしたデータで回帰モデルを作成し、`gtsummary` で表も作成する。
 
