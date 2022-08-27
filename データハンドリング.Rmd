@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 pacman::p_load(tidyverse)
 ```
 
-# fill 
+# 値埋めをしてからその値を使った計算をする
 
 以下のデータフレームを想定する。
 
@@ -70,4 +70,43 @@ df %>%
     var1 = coalesce(var1, var2),
     var1 = cumprod(var1)
   )
+```
+
+# 複数の従属変数あるいはカテゴリごとに作成した回帰モデルの表を統合する
+
+## パッケージ
+
+```{r}
+pacman::p_load(tidyverse, 
+               palmerpenguins,
+               gtsummary
+               )
+```
+
+使用するのはペンギンデータ
+
+```{r}
+skimr::skim(penguins)
+```
+
+`species` ごとにネストしたデータで回帰モデルを作成し、`gtsummary` で表も作成する。
+
+```{r}
+penguin_tab <- penguins %>% 
+  group_nest(species) %>% 
+  mutate(model = map(data, 
+                     ~ lm(data = .x, 
+                          formula = bill_length_mm ~ bill_depth_mm + sex)),
+         tbl_reg = map(model, 
+                       ~ tbl_regression(.x))
+         )
+
+penguin_tab
+```
+
+ネストデータ内に作成したモデルを統合する。
+
+```{r}
+tbl_merge(penguin_tab$tbl_reg, 
+          tab_spanner = c("Adelie", "Chinstrap", "Gentoo"))
 ```
